@@ -9,6 +9,8 @@ use App\Group;
 use App\GroupUser;
 use App\DonorItem;
 use App\NeedierItem;
+use App\NeedierStatusType;
+use App\NeedierItemComment;
 use App\PushMessage;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -45,12 +47,12 @@ class ApiController extends Controller {
             $appUser->mobile = $user_data->mobile;
             $appUser->marker_id = $marker->id;
             $appUser->user_type = "DNR";
+            $appUser->active = $user_data->status;
             $appUser->save();
 
             $donorItem = new DonorItem();
             $donorItem->user_id = $appUser->id;
             $donorItem->donate_items = $user_data->donate_items;
-            $donorItem->status = $user_data->status;
             $donorItem->save();
 
             DB::commit();
@@ -76,6 +78,20 @@ class ApiController extends Controller {
             $user_data = json_decode($request->get("user"));
 
             DB::beginTransaction();
+
+
+            $sql = DB::table("users")
+                    ->leftJoin('group_users', 'users.id', '=', 'group_users.user_id')
+                    ->select('users.id');
+
+            $sql->where("users.mobile", $user_data->mobile);
+            $sql->where("group_users.group_id", $user_data->group_id);
+
+            $user_exist = $sql->get();
+
+            if (!is_null($user_exist)) {
+                 throw new \Exception("Needier already exist!");
+            }
 
             $marker = new Marker();
             $marker->lat = $user_data->lat;
@@ -111,6 +127,67 @@ class ApiController extends Controller {
         }
     }
 
+
+    public function saveMember(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $response = app()->make('stdClass');
+
+            $user_data = json_decode($request->get("user"));
+
+            DB::beginTransaction();
+
+            $marker = new Marker();
+            $marker->lat = $user_data->lat;
+            $marker->lng = $user_data->lng;
+            $marker->save();
+
+            $appUser = new AppUser();
+            $appUser->name = $user_data->name;
+            $appUser->mobile = $user_data->mobile;
+            $appUser->marker_id = $marker->id;
+            $appUser->user_type = "MBR";
+            $appUser->save();
+
+            $groupUser = new GroupUser();
+            $groupUser->group_id = $user_data->group_id;
+            $groupUser->user_id = $appUser->id;
+            $groupUser->save();
+
+            DB::commit();
+
+            $apiResponse->setResponse($response);
+            return $apiResponse->outputResponse($apiResponse);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+    public function saveComment(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $response = app()->make('stdClass');
+            $data = json_decode($request->get("comment"));
+
+            $comment = new NeedierItemComment();
+            $comment->needier_items_id = $data->needier_item_id;
+            $comment->member_id = $data->member_id;
+            $comment->comments = $data->comment;
+            $comment->save();
+
+            $apiResponse->setResponse($response);
+            return $apiResponse->outputResponse($apiResponse);
+
+        } catch (\Exception $e) {
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
 
     public function getUserById(Request $request) {
         $apiResponse = new ApiResponse();
@@ -284,7 +361,7 @@ class ApiController extends Controller {
     }
 
 
-    public function getGroupNeedier(Request $request) {
+    public function getGroupNeedierItems(Request $request) {
         $apiResponse = new ApiResponse();
         try {
 
@@ -292,11 +369,13 @@ class ApiController extends Controller {
             $group_id = (int) $request->get("group_id");
             $page = (int) $request->get("page");
 
-            $sql = DB::table("users")
-                    ->leftJoin('needier_items', 'users.id', '=', 'needier_items.user_id')
+            $sql = DB::table("needier_items")
+                    ->leftJoin('users', 'users.id', '=', 'needier_items.user_id')
                     ->leftJoin('group_users', 'users.id', '=', 'group_users.user_id')
-                    ->select('users.name', 'users.mobile','needier_items.items_need');
+                    ->leftJoin('markers', 'users.marker_id', '=', 'markers.id')
+                    ->select('needier_items.id as needier_item_id','needier_items.user_id', 'users.name', 'users.mobile','markers.lat','markers.lng','needier_items.items_need');
             $sql->where("users.active", 1);
+            $sql->where("users.user_type", 'NDR');
             $sql->where("group_users.group_id", $group_id);
             $sql->where("needier_items.status_id", $status_id);
 
@@ -313,6 +392,144 @@ class ApiController extends Controller {
         }
     }
 
+    public function getGroupMember(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $group_id = (int) $request->get("group_id");
+            $page = (int) $request->get("page");
+
+            $sql = DB::table("users")
+                    ->leftJoin('group_users', 'users.id', '=', 'group_users.user_id')
+                    ->leftJoin('markers', 'users.marker_id', '=', 'markers.id')
+                    ->select('users.name', 'users.mobile','markers.lat','markers.lng','users.is_admin');
+            $sql->where("users.active", 1);
+            $sql->where("users.user_type", 'MBR');
+            $sql->where("group_users.group_id", $group_id);
+
+            $sql->orderBy('users.id', 'desc');
+            $sql->paginate(10, ['*'], 'page', $page);
+
+            $apiResponse->setResponse($users);
+            return $apiResponse->outputResponse($apiResponse);
+        } catch (\Exception $e) {
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+    public function getNeedierItemStatusTypes(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $result = NeedierStatusType::all();
+            $apiResponse->setResponse($result);
+            return $apiResponse->outputResponse($apiResponse);
+        } catch (\Exception $e) {
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+    public function updateNeedierItemStatus(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $response = app()->make('stdClass');
+
+            DB::beginTransaction();
+
+            $item = NeedierItem::find($request->get("needier_item_id"));
+            if ($item == null) {
+                throw new \Exception("Item not found");
+            }
+            $item->status_id = $request->get("status_id");
+            $item->save();
+
+            $member = AppUser::find($request->get("member_id"));
+            $status = NeedierStatusType::find($request->get("status_id"));
+
+            $needierComment = new NeedierItemComment();
+            $needierComment->needier_items_id = $item->id;
+            $needierComment->member_id = $member->id;
+            $needierComment->comments = $member->name." has changed the status to ". $status->name;
+            $needierComment->save();
+
+            DB::commit();
+
+            $apiResponse->setResponse($response);
+
+            return $apiResponse->outputResponse($apiResponse);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+    public function getComments(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $response = array();
+            $page = (int) $request->get("page");
+            $sql = DB::table("needier_items_comments")
+                    ->leftJoin('users', 'users.id', '=', 'needier_items_comments.member_id')
+                    ->select('users.name', 'needier_items_comments.comments','needier_items_comments.created_at');
+            $sql->where("needier_items_comments.needier_items_id", $request->get("needier_item_id"));
+
+            $sql->orderBy('needier_items_comments.created_at', 'desc');
+            $sql->paginate(10, ['*'], 'page', $page);
+            $comments = $sql->get();
+
+            foreach ($comments as $comment) {
+                $commentObject = app()->make('stdClass');
+                $commentObject->member_name = $comment->name;
+                $commentObject->comment = $comment->comments;
+                $commentObject->dateAdded = Carbon::parse($comment->created_at)->diffForHumans();
+                $response[] =  $commentObject;
+            }
+
+            $apiResponse->setResponse($response);
+            return $apiResponse->outputResponse($apiResponse);
+        } catch (\Exception $e) {
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+    public function getNearByUsers(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $lat = $request->get("lat");
+            $lng = $request->get("lng");
+            $distance = (int) $request->get("distance");
+            $userType =  $request->get("user_type");
+
+            $sql = DB::table('users')
+            ->leftJoin('markers', 'users.marker_id', '=', 'markers.id')
+            ->select('name', 'mobile','lat', 'lng','user_type', DB::raw(sprintf(
+                '(6371 * acos(cos(radians(%1$.7f)) * cos(radians(lat)) * cos(radians(lng) - radians(%2$.7f)) + sin(radians(%1$.7f)) * sin(radians(lat)))) AS distance',
+                $lat,
+                $lng
+            )));
+
+            if($userType != "ALL") {
+                $sql->where('user_type', $userType);
+            }
+            $sql->where('active', 1);
+            $sql->having('distance', '<', $distance);
+            $sql->orderBy('distance', 'asc');
+            $users = $sql->get();
+
+            $apiResponse->setResponse($users);
+            return $apiResponse->outputResponse($apiResponse);
+        } catch (\Exception $e) {
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
 
     public function random_num($size) {
         $alpha_key = '';

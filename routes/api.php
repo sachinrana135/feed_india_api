@@ -19,10 +19,19 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 
 Route::post('/saveDonor', 'ApiController@saveDonor');
 Route::post('/saveNeedier', 'ApiController@saveNeedier');
+Route::post('/saveMember', 'ApiController@saveMember');
+Route::post('/saveGroup', 'ApiController@saveGroup');
+Route::post('/saveComment', 'ApiController@saveComment');
+Route::post('/mapFcmIdToUser', 'ApiController@mapFcmIdToUser');
+
 Route::get('/getUserById', 'ApiController@getUserById');
 Route::get('/getUserByMobile', 'ApiController@getUserByMobile');
 Route::get('/getNearByGroups', 'ApiController@getNearByGroups');
-Route::get('/getGroupNeedier', 'ApiController@getGroupNeedier');
-Route::post('/mapFcmIdToUser', 'ApiController@mapFcmIdToUser');
-Route::post('/saveGroup', 'ApiController@saveGroup');
+Route::get('/getNearByUsers', 'ApiController@getNearByUsers');
+Route::get('/getGroupNeedierItems', 'ApiController@getGroupNeedierItems');
+Route::get('/getGroupMember', 'ApiController@getGroupMember');
+Route::get('/getComments', 'ApiController@getComments');
+Route::get('/getNeedierItemStatusTypes', 'ApiController@getNeedierItemStatusTypes');
+
+Route::put('/updateNeedierItemStatus', 'ApiController@updateNeedierItemStatus');
 
