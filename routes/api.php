@@ -17,7 +17,8 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::post('/saveUser', 'ApiController@saveUser');
+Route::post('/saveDonor', 'ApiController@saveDonor');
+Route::post('/saveNeedier', 'ApiController@saveNeedier');
 Route::get('/getUserById', 'ApiController@getUserById');
 Route::get('/getUserByMobile', 'ApiController@getUserByMobile');
 Route::post('/mapFcmIdToUser', 'ApiController@mapFcmIdToUser');

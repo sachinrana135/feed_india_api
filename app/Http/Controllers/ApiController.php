@@ -7,6 +7,8 @@ use App\AppUser;
 use App\Marker;
 use App\Group;
 use App\GroupUser;
+use App\DonorItem;
+use App\NeedierItem;
 use App\PushMessage;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -23,8 +25,49 @@ class ApiController extends Controller {
 
     }
 
+    public function saveDonor(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
 
-    public function saveUser(Request $request) {
+            $response = app()->make('stdClass');
+            $user_data = json_decode($request->get("user"));
+
+            DB::beginTransaction();
+
+            $marker = new Marker();
+            $marker->lat = $user_data->lat;
+            $marker->lng = $user_data->lng;
+            $marker->save();
+
+            $appUser = new AppUser();
+            $appUser->firebase_id = $user_data->firebaseId;
+            $appUser->name = $user_data->name;
+            $appUser->mobile = $user_data->mobile;
+            $appUser->marker_id = $marker->id;
+            $appUser->user_type = "DNR";
+            $appUser->save();
+
+            $donorItem = new DonorItem();
+            $donorItem->user_id = $appUser->id;
+            $donorItem->donate_items = $user_data->donate_items;
+            $donorItem->status = $user_data->status;
+            $donorItem->save();
+
+            DB::commit();
+
+            $response->userId  = (String) $appUser->id;
+            $apiResponse->setResponse($response);
+            return $apiResponse->outputResponse($apiResponse);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+
+    public function saveNeedier(Request $request) {
         $apiResponse = new ApiResponse();
         try {
 
@@ -32,32 +75,37 @@ class ApiController extends Controller {
 
             $user_data = json_decode($request->get("user"));
 
-            $marker = new Marker();
+            DB::beginTransaction();
 
+            $marker = new Marker();
             $marker->lat = $user_data->lat;
             $marker->lng = $user_data->lng;
             $marker->save();
 
             $appUser = new AppUser();
-
-            $appUser->firebase_id = $user_data->firebaseId;
             $appUser->name = $user_data->name;
             $appUser->mobile = $user_data->mobile;
             $appUser->marker_id = $marker->id;
-            $appUser->user_type = $user_data->userType;
-
+            $appUser->user_type = "NDR";
             $appUser->save();
 
-            $response->userId  = (String) $appUser->id;
-            $apiResponse->setResponse($response);
+            $needierItem = new NeedierItem();
+            $needierItem->user_id = $appUser->id;
+            $needierItem->items_need = $user_data->need_items;
+            $needierItem->save();
 
+            DB::commit();
+
+            $apiResponse->setResponse($response);
             return $apiResponse->outputResponse($apiResponse);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             $apiResponse->error->setMessage($e->getMessage());
             return $apiResponse->outputResponse($apiResponse);
         }
     }
+
 
     public function getUserById(Request $request) {
         $apiResponse = new ApiResponse();
@@ -159,25 +207,23 @@ class ApiController extends Controller {
 
             $group_data = json_decode($request->get("group"));
 
-            $marker = new Marker();
+            DB::beginTransaction();
 
+            $marker = new Marker();
             $marker->lat = $group_data->lat;
             $marker->lng = $group_data->lng;
             $marker->save();
 
             $appUser = new AppUser();
-
             $appUser->firebase_id = $group_data->firebaseId;
             $appUser->name = $group_data->admin_name;
             $appUser->mobile = $group_data->mobile;
             $appUser->marker_id = $marker->id;
             $appUser->user_type = "MBR";
             $appUser->is_admin = 1;
-
             $appUser->save();
 
             $group = new Group();
-
             $group->code  = $this->random_num(6);
             $group->name  = $group_data->group_name;
             $group->mobile = $group_data->mobile;
@@ -191,12 +237,15 @@ class ApiController extends Controller {
             $groupUser->user_id = $appUser->id;
             $groupUser->save();
 
+            DB::commit();
+
             $response->userId  = (String) $appUser->id;
             $apiResponse->setResponse($response);
 
             return $apiResponse->outputResponse($apiResponse);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             $apiResponse->error->setMessage($e->getMessage());
             return $apiResponse->outputResponse($apiResponse);
         }
