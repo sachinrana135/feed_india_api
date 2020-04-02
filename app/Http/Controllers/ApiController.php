@@ -89,6 +89,11 @@ class ApiController extends Controller {
             $appUser->user_type = "NDR";
             $appUser->save();
 
+            $groupUser = new GroupUser();
+            $groupUser->group_id = $user_data->group_id;
+            $groupUser->user_id = $appUser->id;
+            $groupUser->save();
+
             $needierItem = new NeedierItem();
             $needierItem->user_id = $appUser->id;
             $needierItem->items_need = $user_data->need_items;
@@ -246,6 +251,63 @@ class ApiController extends Controller {
 
         } catch (\Exception $e) {
             DB::rollBack();
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+    public function getNearByGroups(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $lat = $request->get("lat");
+            $lng = $request->get("lng");
+            $distance = (int) $request->get("distance");
+
+            $groups = DB::table('groups')
+            ->leftJoin('markers', 'groups.marker_id', '=', 'markers.id')
+            ->select('name', 'mobile','address','lat', 'lng', DB::raw(sprintf(
+                '(6371 * acos(cos(radians(%1$.7f)) * cos(radians(lat)) * cos(radians(lng) - radians(%2$.7f)) + sin(radians(%1$.7f)) * sin(radians(lat)))) AS distance',
+                $lat,
+                $lng
+            )))
+            ->having('distance', '<', 50)
+            ->orderBy('distance', 'asc')
+            ->get();
+
+            $apiResponse->setResponse($groups);
+            return $apiResponse->outputResponse($apiResponse);
+        } catch (\Exception $e) {
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+
+    public function getGroupNeedier(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $status_id = (int) $request->get("status");
+            $group_id = (int) $request->get("group_id");
+            $page = (int) $request->get("page");
+
+            $sql = DB::table("users")
+                    ->leftJoin('needier_items', 'users.id', '=', 'needier_items.user_id')
+                    ->leftJoin('group_users', 'users.id', '=', 'group_users.user_id')
+                    ->select('users.name', 'users.mobile','needier_items.items_need');
+            $sql->where("users.active", 1);
+            $sql->where("group_users.group_id", $group_id);
+            $sql->where("needier_items.status_id", $status_id);
+
+            $sql->orderBy('users.id', 'desc');
+            $sql->paginate(10, ['*'], 'page', $page);
+
+            $users = $sql->get();
+
+            $apiResponse->setResponse($users);
+            return $apiResponse->outputResponse($apiResponse);
+        } catch (\Exception $e) {
             $apiResponse->error->setMessage($e->getMessage());
             return $apiResponse->outputResponse($apiResponse);
         }

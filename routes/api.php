@@ -21,6 +21,8 @@ Route::post('/saveDonor', 'ApiController@saveDonor');
 Route::post('/saveNeedier', 'ApiController@saveNeedier');
 Route::get('/getUserById', 'ApiController@getUserById');
 Route::get('/getUserByMobile', 'ApiController@getUserByMobile');
+Route::get('/getNearByGroups', 'ApiController@getNearByGroups');
+Route::get('/getGroupNeedier', 'ApiController@getGroupNeedier');
 Route::post('/mapFcmIdToUser', 'ApiController@mapFcmIdToUser');
 Route::post('/saveGroup', 'ApiController@saveGroup');
 
