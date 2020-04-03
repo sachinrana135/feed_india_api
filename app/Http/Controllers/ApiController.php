@@ -32,7 +32,7 @@ class ApiController extends Controller {
         try {
 
             $response = app()->make('stdClass');
-            $user_data = json_decode($request->get("user"));
+            $user_data = json_decode($request->getContent());
 
             DB::beginTransaction();
 
@@ -75,7 +75,7 @@ class ApiController extends Controller {
 
             $response = app()->make('stdClass');
 
-            $user_data = json_decode($request->get("user"));
+            $user_data = json_decode($request->getContent());
 
             DB::beginTransaction();
 
@@ -87,7 +87,7 @@ class ApiController extends Controller {
             $sql->where("users.mobile", $user_data->mobile);
             $sql->where("group_users.group_id", $user_data->group_id);
 
-            $user_exist = $sql->get();
+            $user_exist = $sql->get()->first();
 
             if (!is_null($user_exist)) {
                  throw new \Exception("Needier already exist!");
@@ -134,7 +134,7 @@ class ApiController extends Controller {
 
             $response = app()->make('stdClass');
 
-            $user_data = json_decode($request->get("user"));
+            $user_data = json_decode($request->getContent());
 
             DB::beginTransaction();
 
@@ -172,7 +172,7 @@ class ApiController extends Controller {
         try {
 
             $response = app()->make('stdClass');
-            $data = json_decode($request->get("comment"));
+            $data = json_decode($request->getContent());
 
             $comment = new NeedierItemComment();
             $comment->needier_items_id = $data->needier_item_id;
@@ -287,7 +287,7 @@ class ApiController extends Controller {
 
             $response = app()->make('stdClass');
 
-            $group_data = json_decode($request->get("group"));
+            $group_data = json_decode($request->getContent());
 
             DB::beginTransaction();
 
@@ -437,17 +437,24 @@ class ApiController extends Controller {
 
             $response = app()->make('stdClass');
 
+            $data = json_decode($request->getContent());
+
             DB::beginTransaction();
 
-            $item = NeedierItem::find($request->get("needier_item_id"));
+            $item = NeedierItem::find($data->needier_item_id);
             if ($item == null) {
                 throw new \Exception("Item not found");
             }
-            $item->status_id = $request->get("status_id");
+            $item->status_id = $data->status_id;
             $item->save();
 
-            $member = AppUser::find($request->get("member_id"));
-            $status = NeedierStatusType::find($request->get("status_id"));
+            $member = AppUser::find($data->member_id);
+
+            if ($member == null) {
+                throw new \Exception("Member not found");
+            }
+
+            $status = NeedierStatusType::find($data->status_id);
 
             $needierComment = new NeedierItemComment();
             $needierComment->needier_items_id = $item->id;
