@@ -39,6 +39,7 @@ class ApiController extends Controller {
             $marker = new Marker();
             $marker->lat = $user_data->lat;
             $marker->lng = $user_data->lng;
+            $marker->location_address = $user_data->location_address;
             $marker->save();
 
             $appUser = new AppUser();
@@ -96,6 +97,7 @@ class ApiController extends Controller {
             $marker = new Marker();
             $marker->lat = $user_data->lat;
             $marker->lng = $user_data->lng;
+            $marker->location_address = $user_data->location_address;
             $marker->save();
 
             $appUser = new AppUser();
@@ -142,6 +144,7 @@ class ApiController extends Controller {
             $marker = new Marker();
             $marker->lat = $user_data->lat;
             $marker->lng = $user_data->lng;
+            $marker->location_address = $user_data->location_address;
             $marker->save();
 
             $appUser = new AppUser();
@@ -213,6 +216,11 @@ class ApiController extends Controller {
             $response->mobile = $user->mobile;
             $response->userType = $user->user_type;
 
+            $marker = Marker::find($user->marker_id);
+            $response->lat = $marker->lat;
+            $response->lng = $marker->lng;
+            $response->location_address = $marker->location_address;
+
             if($user->user_type == "DNR") {
                 $donate_items = DonorItem::where('user_id', $user->id)->first();
                 $response->donateItems = $donate_items->donate_items;
@@ -254,6 +262,11 @@ class ApiController extends Controller {
             $response->name = $user->name;
             $response->mobile = $user->mobile;
             $response->userType = $user->user_type;
+
+            $marker = Marker::find($user->marker_id);
+            $response->lat = $marker->lat;
+            $response->lng = $marker->lng;
+            $response->location_address = $marker->location_address;
 
             if($user->user_type == "DNR") {
                 $donate_items = DonorItem::where('user_id', $user->id)->first();
@@ -316,6 +329,7 @@ class ApiController extends Controller {
             $marker = new Marker();
             $marker->lat = $group_data->lat;
             $marker->lng = $group_data->lng;
+            $marker->location_address = $group_data->location_address;
             $marker->save();
 
             $appUser = new AppUser();
