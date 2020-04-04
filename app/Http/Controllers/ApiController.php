@@ -117,6 +117,7 @@ class ApiController extends Controller {
 
             DB::commit();
 
+            $response->userId  = (String) $appUser->id;
             $apiResponse->setResponse($response);
             return $apiResponse->outputResponse($apiResponse);
 
@@ -157,6 +158,7 @@ class ApiController extends Controller {
 
             DB::commit();
 
+            $response->userId  = (String) $appUser->id;
             $apiResponse->setResponse($response);
             return $apiResponse->outputResponse($apiResponse);
 
@@ -210,7 +212,17 @@ class ApiController extends Controller {
             $response->name = $user->name;
             $response->mobile = $user->mobile;
             $response->userType = $user->user_type;
-            $response->isAdmin = $user->is_admin == 0 ? false : true ;
+
+            if($user->user_type == "DNR") {
+                $donate_items = DonorItem::where('user_id', $user->id)->first();
+                $response->donateItems = $donate_items->donate_items;
+                $response->donorVisibility = $donate_items->status == 0 ? false: true;
+            }else if($user->user_type == "NDR") {
+                $need_items = NeedierItem::where('user_id', $user->id)->first();
+                $response->needItems = $need_items->items_need;
+            }else if($user->user_type == "MBR") {
+                  $response->isAdmin = $user->is_admin == 0 ? false : true ;
+            }
 
             $apiResponse->setResponse($response);
 
@@ -242,7 +254,17 @@ class ApiController extends Controller {
             $response->name = $user->name;
             $response->mobile = $user->mobile;
             $response->userType = $user->user_type;
-            $response->isAdmin = $user->is_admin == 0 ? false : true ;
+
+            if($user->user_type == "DNR") {
+                $donate_items = DonorItem::where('user_id', $user->id)->first();
+                $response->donateItems = $donate_items->donate_items;
+                 $response->donorVisibility = $donate_items->status == 0 ? false: true;
+            }else if($user->user_type == "NDR") {
+                $need_items = NeedierItem::where('user_id', $user->id)->first();
+                $response->needItems = $need_items->items_need;
+            }else if($user->user_type == "MBR") {
+                $response->isAdmin = $user->is_admin == 0 ? false : true ;
+            }
 
             $apiResponse->setResponse($response);
 

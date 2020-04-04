@@ -13,7 +13,7 @@ use App;
 
 class ApiResponse {
 
-    public $response = '';
+    public $response = null;
     public $error = '';
 
     /**
