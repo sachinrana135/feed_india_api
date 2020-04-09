@@ -25,6 +25,7 @@ Route::post('/saveComment', 'ApiController@saveComment');
 Route::post('/mapFcmIdToUser', 'ApiController@mapFcmIdToUser');
 
 Route::get('/getUserById', 'ApiController@getUserById');
+Route::get('/getNeedier', 'ApiController@getNeedier');
 Route::get('/getUserByMobile', 'ApiController@getUserByMobile');
 Route::get('/getNearByGroups', 'ApiController@getNearByGroups');
 Route::get('/getNearByUsers', 'ApiController@getNearByUsers');

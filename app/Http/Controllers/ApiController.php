@@ -154,8 +154,10 @@ class ApiController extends Controller {
             $appUser->user_type = "MBR";
             $appUser->save();
 
+            $group = Group::where('code', $user_data->groupCode)->first();
+
             $groupUser = new GroupUser();
-            $groupUser->group_id = $user_data->group_id;
+            $groupUser->group_id = $group->id;
             $groupUser->user_id = $appUser->id;
             $groupUser->save();
 
@@ -226,9 +228,20 @@ class ApiController extends Controller {
                 $response->donorVisibility = $donate_items->status == 0 ? false: true;
             }else if($user->user_type == "NDR") {
                 $need_items = NeedierItem::where('user_id', $user->id)->first();
+                $response->needierItemId = (String) $need_items->id;
                 $response->needItems = $need_items->items_need;
             }else if($user->user_type == "MBR") {
-                  $response->isAdmin = $user->is_admin == 0 ? false : true ;
+                $response->isAdmin = $user->is_admin == 0 ? false : true ;
+
+                $sql = DB::table("group_users")
+                ->leftJoin('groups', 'group_users.group_id', '=', 'groups.id')
+                ->select('groups.id as groupId','groups.code as groupCode', 'groups.name as groupName');
+                $sql->where("group_users.user_id", $userId);
+
+                $group = $sql->get()->first();
+                $response->groupId = $group->groupId;
+                $response->groupName = $group->groupName;
+                $response->groupCode = $group->groupCode;
             }
 
             $apiResponse->setResponse($response);
@@ -273,9 +286,19 @@ class ApiController extends Controller {
                  $response->donorVisibility = $donate_items->status == 0 ? false: true;
             }else if($user->user_type == "NDR") {
                 $need_items = NeedierItem::where('user_id', $user->id)->first();
+                $response->needierItemId = (String) $need_items->id;
                 $response->needItems = $need_items->items_need;
             }else if($user->user_type == "MBR") {
                 $response->isAdmin = $user->is_admin == 0 ? false : true ;
+                $sql = DB::table("group_users")
+                ->leftJoin('groups', 'group_users.group_id', '=', 'groups.id')
+                ->select('groups.id as groupId','groups.code as groupCode', 'groups.name as groupName');
+                $sql->where("group_users.user_id", $user->id);
+
+                $group = $sql->get()->first();
+                $response->groupId = $group->groupId;
+                $response->groupName = $group->groupName;
+                $response->groupCode = $group->groupCode;
             }
 
             $apiResponse->setResponse($response);
@@ -357,6 +380,7 @@ class ApiController extends Controller {
             DB::commit();
 
             $response->userId  = (String) $appUser->id;
+            $response->groupId  = (String) $group->id;
             $apiResponse->setResponse($response);
 
             return $apiResponse->outputResponse($apiResponse);
@@ -400,26 +424,42 @@ class ApiController extends Controller {
         $apiResponse = new ApiResponse();
         try {
 
+            $response = array();
+
             $status_id = (int) $request->get("status");
             $group_id = (int) $request->get("group_id");
-            $page = (int) $request->get("page");
+            $page =  $request->get("page");
+            $pageLoad = $request->get("page_load");
 
             $sql = DB::table("needier_items")
                     ->leftJoin('users', 'users.id', '=', 'needier_items.user_id')
                     ->leftJoin('group_users', 'users.id', '=', 'group_users.user_id')
                     ->leftJoin('markers', 'users.marker_id', '=', 'markers.id')
-                    ->select('needier_items.id as needier_item_id','needier_items.user_id', 'users.name', 'users.mobile','markers.lat','markers.lng','needier_items.items_need');
+                    ->leftJoin('item_status', 'needier_items.status_id', '=', 'item_status.id')
+                    ->select('needier_items.id as needier_item_id','needier_items.user_id', 'users.name', 'users.mobile','markers.lat','markers.lng','markers.location_address','needier_items.items_need', 'item_status.name as status');
             $sql->where("users.active", 1);
             $sql->where("users.user_type", 'NDR');
             $sql->where("group_users.group_id", $group_id);
             $sql->where("needier_items.status_id", $status_id);
 
             $sql->orderBy('users.id', 'desc');
-            $sql->paginate(10, ['*'], 'page', $page);
+            $sql->paginate($pageLoad, ['*'], 'page', $page);
 
             $users = $sql->get();
 
-            $apiResponse->setResponse($users);
+            foreach ($users as $user) {
+                $userObject = app()->make('stdClass');
+                $userObject->needier_item_id = (String) $user->needier_item_id;
+                $userObject->name =  $user->name;
+                $userObject->mobile =  $user->mobile;
+                $userObject->address =  $user->location_address;
+                $userObject->items_need =  $user->items_need;
+                $userObject->status =  $user->status;
+
+                $response[] =  $userObject;
+            }
+
+            $apiResponse->setResponse($response);
             return $apiResponse->outputResponse($apiResponse);
         } catch (\Exception $e) {
             $apiResponse->error->setMessage($e->getMessage());
@@ -427,25 +467,65 @@ class ApiController extends Controller {
         }
     }
 
+    public function getNeedier(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $needier_item_id = (int) $request->get("needier_item_id");
+
+            $sql = DB::table("needier_items")
+                    ->leftJoin('users', 'users.id', '=', 'needier_items.user_id')
+                    ->leftJoin('markers', 'users.marker_id', '=', 'markers.id')
+                    ->leftJoin('item_status', 'needier_items.status_id', '=', 'item_status.id')
+                    ->select('needier_items.id as needier_item_id','needier_items.user_id', 'users.name', 'users.mobile','markers.lat','markers.lng','markers.location_address as address','needier_items.items_need', 'item_status.name as status');
+            $sql->where("needier_items.id", $needier_item_id);
+
+            $needier = $sql->get()->first();
+
+            $apiResponse->setResponse($needier);
+            return $apiResponse->outputResponse($apiResponse);
+        } catch (\Exception $e) {
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+
     public function getGroupMember(Request $request) {
         $apiResponse = new ApiResponse();
         try {
 
+            $response = array();
+
             $group_id = (int) $request->get("group_id");
             $page = (int) $request->get("page");
+            $pageLoad = (int) $request->get("page_load");
 
             $sql = DB::table("users")
                     ->leftJoin('group_users', 'users.id', '=', 'group_users.user_id')
                     ->leftJoin('markers', 'users.marker_id', '=', 'markers.id')
-                    ->select('users.name', 'users.mobile','markers.lat','markers.lng','users.is_admin');
+                    ->select('users.name', 'users.mobile','markers.lat','markers.lng','users.is_admin as isAdmin','markers.location_address as location_address');
             $sql->where("users.active", 1);
             $sql->where("users.user_type", 'MBR');
             $sql->where("group_users.group_id", $group_id);
 
             $sql->orderBy('users.id', 'desc');
-            $sql->paginate(10, ['*'], 'page', $page);
+            $sql->paginate($pageLoad, ['*'], 'page', $page);
+            $users = $sql->get() ;
 
-            $apiResponse->setResponse($users);
+
+            foreach ($users as $user) {
+                $userObject = app()->make('stdClass');
+                $userObject->name =  $user->name;
+                $userObject->mobile =  $user->mobile;
+                $userObject->lat =  $user->lat;
+                $userObject->lng =  $user->lng;
+                $userObject->location_address =  $user->location_address;
+                $userObject->isAdmin = $user->isAdmin == 0 ? false : true ;
+                $response[] =  $userObject;
+            }
+
+            $apiResponse->setResponse($response);
             return $apiResponse->outputResponse($apiResponse);
         } catch (\Exception $e) {
             $apiResponse->error->setMessage($e->getMessage());
@@ -546,22 +626,36 @@ class ApiController extends Controller {
             $lng = $request->get("lng");
             $distance = (int) $request->get("distance");
             $userType =  $request->get("user_type");
+            $group_id =  $request->get("group_id");
 
             $sql = DB::table('users')
             ->leftJoin('markers', 'users.marker_id', '=', 'markers.id')
+            ->leftJoin('group_users', 'users.id', '=', 'group_users.user_id')
             ->select('name', 'mobile','lat', 'lng','user_type', DB::raw(sprintf(
-                '(6371 * acos(cos(radians(%1$.7f)) * cos(radians(lat)) * cos(radians(lng) - radians(%2$.7f)) + sin(radians(%1$.7f)) * sin(radians(lat)))) AS distance',
+                'ROUND(6371 * acos(cos(radians(%1$.7f)) * cos(radians(lat)) * cos(radians(lng) - radians(%2$.7f)) + sin(radians(%1$.7f)) * sin(radians(lat))),2) AS distance',
                 $lat,
                 $lng
             )));
 
-            if($userType != "ALL") {
-                $sql->where('user_type', $userType);
-            }
             $sql->where('active', 1);
             $sql->having('distance', '<', $distance);
             $sql->orderBy('distance', 'asc');
-            $users = $sql->get();
+
+            $groupUsers = clone $sql;
+
+            $groupUsers->where('group_users.group_id', $group_id);
+            $groupUsers->where(function($result) {
+             $result->where("user_type" , "MBR")
+               ->orWhere('user_type' , "NDR");
+             });
+
+             $donor = clone $sql;
+             $donor->where('user_type', "DNR");
+
+            $users = $groupUsers
+                    ->union($donor)
+                    ->get();
+
 
             $apiResponse->setResponse($users);
             return $apiResponse->outputResponse($apiResponse);
