@@ -176,7 +176,6 @@ class ApiController extends Controller {
         $apiResponse = new ApiResponse();
         try {
 
-            $response = app()->make('stdClass');
             $data = json_decode($request->getContent());
 
             $comment = new NeedierItemComment();
@@ -185,7 +184,7 @@ class ApiController extends Controller {
             $comment->comments = $data->comment;
             $comment->save();
 
-            $apiResponse->setResponse($response);
+            $apiResponse->setResponse("Success");
             return $apiResponse->outputResponse($apiResponse);
 
         } catch (\Exception $e) {
@@ -471,8 +470,6 @@ class ApiController extends Controller {
         $apiResponse = new ApiResponse();
         try {
 
-            $response = app()->make('stdClass');
-
             $data = json_decode($request->getContent());
 
             DB::beginTransaction();
@@ -500,7 +497,7 @@ class ApiController extends Controller {
 
             DB::commit();
 
-            $apiResponse->setResponse($response);
+            $apiResponse->setResponse("Success");
 
             return $apiResponse->outputResponse($apiResponse);
         } catch (\Exception $e) {
@@ -569,6 +566,30 @@ class ApiController extends Controller {
             $apiResponse->setResponse($users);
             return $apiResponse->outputResponse($apiResponse);
         } catch (\Exception $e) {
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+    public function updateDonor(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+            $user_data = json_decode($request->getContent());
+
+            DB::beginTransaction();
+
+            $donorItem = DonorItem::where('user_id', $user_data->userId)->first();
+            $donorItem->donate_items = $user_data->donate_items;
+            $donorItem->status = $user_data->status;
+            $donorItem->save();
+
+            DB::commit();
+
+            $apiResponse->setResponse("Success");
+            return $apiResponse->outputResponse($apiResponse);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
             $apiResponse->error->setMessage($e->getMessage());
             return $apiResponse->outputResponse($apiResponse);
         }

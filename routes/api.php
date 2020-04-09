@@ -34,4 +34,5 @@ Route::get('/getComments', 'ApiController@getComments');
 Route::get('/getNeedierItemStatusTypes', 'ApiController@getNeedierItemStatusTypes');
 
 Route::put('/updateNeedierItemStatus', 'ApiController@updateNeedierItemStatus');
+Route::put('/updateDonor', 'ApiController@updateDonor');
 
