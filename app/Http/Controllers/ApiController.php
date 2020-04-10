@@ -150,6 +150,7 @@ class ApiController extends Controller {
             $appUser = new AppUser();
             $appUser->name = $user_data->name;
             $appUser->mobile = $user_data->mobile;
+            $appUser->firebase_id = $user_data->firebaseId;
             $appUser->marker_id = $marker->id;
             $appUser->user_type = "MBR";
             $appUser->save();
@@ -628,34 +629,55 @@ class ApiController extends Controller {
             $userType =  $request->get("user_type");
             $group_id =  $request->get("group_id");
 
-            $sql = DB::table('users')
+            $needySql = DB::table('users')
             ->leftJoin('markers', 'users.marker_id', '=', 'markers.id')
-            ->leftJoin('group_users', 'users.id', '=', 'group_users.user_id')
-            ->select('name', 'mobile','lat', 'lng','user_type', DB::raw(sprintf(
+            ->leftJoin('needier_items', 'users.id', '=', 'needier_items.user_id')
+            ->select('name', 'mobile','lat', 'lng','user_type','items_need as items', DB::raw(sprintf(
                 'ROUND(6371 * acos(cos(radians(%1$.7f)) * cos(radians(lat)) * cos(radians(lng) - radians(%2$.7f)) + sin(radians(%1$.7f)) * sin(radians(lat))),2) AS distance',
                 $lat,
                 $lng
             )));
 
-            $sql->where('active', 1);
-            $sql->having('distance', '<', $distance);
-            $sql->orderBy('distance', 'asc');
+            $needySql->where('users.active', 1);
+            $needySql->where('users.user_type', "NDR");
+            $needySql->where('needier_items.status_id', 1);
+            $needySql->having('distance', '<', $distance);
+            $needySql->orderBy('distance', 'asc');
 
-            $groupUsers = clone $sql;
+            $memberSql = DB::table('users')
+            ->leftJoin('markers', 'users.marker_id', '=', 'markers.id')
+            ->leftJoin('group_users', 'users.id', '=', 'group_users.user_id')
+            ->select('name', 'mobile','lat', 'lng','user_type',DB::raw('"" as items'), DB::raw(sprintf(
+                'ROUND(6371 * acos(cos(radians(%1$.7f)) * cos(radians(lat)) * cos(radians(lng) - radians(%2$.7f)) + sin(radians(%1$.7f)) * sin(radians(lat))),2) AS distance',
+                $lat,
+                $lng
+            )));
 
-            $groupUsers->where('group_users.group_id', $group_id);
-            $groupUsers->where(function($result) {
-             $result->where("user_type" , "MBR")
-               ->orWhere('user_type' , "NDR");
-             });
+            $memberSql->where('users.active', 1);
+            $memberSql->where('group_users.group_id', $group_id);
+            $memberSql->where('users.user_type', "MBR");
+            $memberSql->having('distance', '<', $distance);
+            $memberSql->orderBy('distance', 'asc');
 
-             $donor = clone $sql;
-             $donor->where('user_type', "DNR");
+            $donorSql = DB::table('users')
+            ->leftJoin('markers', 'users.marker_id', '=', 'markers.id')
+            ->leftJoin('donor_items', 'users.id', '=', 'donor_items.user_id')
+            ->select('name', 'mobile','lat', 'lng','user_type','donate_items as items', DB::raw(sprintf(
+                'ROUND(6371 * acos(cos(radians(%1$.7f)) * cos(radians(lat)) * cos(radians(lng) - radians(%2$.7f)) + sin(radians(%1$.7f)) * sin(radians(lat))),2) AS distance',
+                $lat,
+                $lng
+            )));
 
-            $users = $groupUsers
-                    ->union($donor)
-                    ->get();
+            $donorSql->where('users.active', 1);
+            $donorSql->where('donor_items.status', 1);
+            $donorSql->where('users.user_type', "DNR");
+            $donorSql->having('distance', '<', $distance);
+            $donorSql->orderBy('distance', 'asc');
 
+            $users = $needySql
+              ->union($memberSql)
+              ->union( $donorSql)
+            ->get();
 
             $apiResponse->setResponse($users);
             return $apiResponse->outputResponse($apiResponse);
@@ -663,6 +685,7 @@ class ApiController extends Controller {
             $apiResponse->error->setMessage($e->getMessage());
             return $apiResponse->outputResponse($apiResponse);
         }
+
     }
 
     public function updateDonor(Request $request) {
