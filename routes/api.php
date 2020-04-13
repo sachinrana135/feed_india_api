@@ -33,6 +33,7 @@ Route::get('/getGroupNeedierItems', 'ApiController@getGroupNeedierItems');
 Route::get('/getGroupMember', 'ApiController@getGroupMember');
 Route::get('/getComments', 'ApiController@getComments');
 Route::get('/getNeedierItemStatusTypes', 'ApiController@getNeedierItemStatusTypes');
+Route::get('/getStartUpConfig', 'ApiController@getStartUpConfig');
 
 Route::put('/updateNeedierItemStatus', 'ApiController@updateNeedierItemStatus');
 Route::put('/updateDonor', 'ApiController@updateDonor');

@@ -27,6 +27,30 @@ class ApiController extends Controller {
 
     }
 
+    public function getStartUpConfig(Request $request) {
+        $apiResponse = new ApiResponse();
+        try {
+
+            $response = app()->make('stdClass');
+
+            $response->apiStatus = (config('api.api_status'));
+
+            $response->isUpdateAvailable = (config('api.app_live_version_code') > $request->header("appVersionCode")) ? true : false;
+
+            $response->isForceUpdate = $request->header("appVersionCode") < (config('api.app_min_version_support'));
+
+            $response->notifyUpdateFrequency = config('api.app_notify_update_frequency');
+
+            $apiResponse->setResponse($response);
+
+            return $apiResponse->outputResponse($apiResponse);
+        } catch (\Exception $e) {
+            $apiResponse->error->setMessage($e->getMessage());
+            return $apiResponse->outputResponse($apiResponse);
+        }
+    }
+
+
     public function saveDonor(Request $request) {
         $apiResponse = new ApiResponse();
         try {
